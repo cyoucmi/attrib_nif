@@ -157,6 +157,7 @@ shunting_yard(const char *input, char *output, char  **err)
 #define TOKEN_SIZE 4
 #define VALUE_SIZE 2
 
+
 typedef enum {
     T_OPERATOR,
     T_REGISTER,
@@ -189,6 +190,8 @@ typedef struct Expression{
 } Expression;
 
 struct Expressions{
+    AttribAlloc alloc;
+    void *alloc_ud;
     Expression *first;
     Expression *end;
     Token ** token_list;
@@ -248,12 +251,14 @@ find_token(Expressions *exps, const char *token_name, int *register_pos){
 
 
 Expressions *
-exps_new(){
-    Expressions *exps = malloc(sizeof(Expressions));
+exps_new(AttribAlloc alloc, void *ud){
+    Expressions *exps = alloc(ud, 0, sizeof(Expressions));
     memset(exps, 0, sizeof(Expressions));
-    exps->token_list = malloc(sizeof(Token*) * TOKEN_SIZE);
+    exps->token_list = alloc(ud, 0, sizeof(Token*) * TOKEN_SIZE);
     memset(exps->token_list, 0, sizeof(Token*) * TOKEN_SIZE);
     exps->token_size = TOKEN_SIZE;
+    exps->alloc = alloc;
+    exps->alloc_ud = ud;
     return exps;
 }
 
@@ -264,14 +269,14 @@ exps_epush(Expressions *exps, const char *formula, char **err){
         return 0;
     }
 
-    Expression *exp = malloc(sizeof(Expression));
+    Expression *exp = exps->alloc(exps->alloc_ud, 0, sizeof(Expression));
     memset(exp, 0, sizeof(Expression));
     int value_size = VALUE_SIZE;
     int value_use_size = 0;
-    exp->value_array = malloc(value_size * sizeof(Value));
+    exp->value_array = exps->alloc(exps->alloc_ud, 0, value_size * sizeof(Value));
 
     size_t output_len = strlen(output);
-    exp->dump_string = malloc((output_len + 1)*sizeof(char));
+    exp->dump_string =  exps->alloc(exps->alloc_ud, 0, (output_len + 1)*sizeof(char));
     strcpy(exp->dump_string, output);
     exp->dump_string[output_len] = 0;
 
@@ -285,7 +290,9 @@ exps_epush(Expressions *exps, const char *formula, char **err){
             
             if(value_use_size > value_size){
                 value_size *= 2;
-                Value *new_value_array = realloc(exp->value_array, value_size * sizeof(Value));
+                Value *new_value_array = exps->alloc(exps->alloc_ud, 0, value_size * sizeof(Value));
+                memcpy(new_value_array, exp->value_array, value_size / 2 * sizeof(Value));
+                exps->alloc(exps->alloc_ud, exp->value_array, value_size / 2 * sizeof(Value));
                 exp->value_array = new_value_array;
             }
             Value *value =  exp->value_array + value_use_size - 1;
@@ -319,7 +326,7 @@ exps_epush(Expressions *exps, const char *formula, char **err){
                     if(exps->token_use_size > exps->token_size){
                         int old_size = exps->token_size;
                         exps->token_size *= 2;
-                        Token **token_list = malloc(sizeof(Token*) * exps->token_size);
+                        Token **token_list = exps->alloc(exps->alloc_ud, 0, sizeof(Token*) * exps->token_size);
                         memset(token_list, 0, sizeof(Token*) * exps->token_size);
                         for(int i = 0; i < old_size; i++){
                             Token *token = exps->token_list[i];
@@ -332,10 +339,10 @@ exps_epush(Expressions *exps, const char *formula, char **err){
                                 token = token_next;
                             }
                         }
-                        free(exps->token_list);
+                        exps->alloc(exps->alloc_ud, exps->token_list, sizeof(Token*) * exps->token_size / 2);
                         exps->token_list = token_list;
                     }
-                    Token *new_token = malloc(sizeof(Token));
+                    Token *new_token = exps->alloc(exps->alloc_ud, 0, sizeof(Token));
                     new_token->hash_value = hash(token_name);
                     new_token->register_index = exps->register_size;
                     exps->register_size ++;
@@ -377,25 +384,27 @@ exps_epush(Expressions *exps, const char *formula, char **err){
 
 void
 exps_delete(Expressions *exps){
-    free(exps->token_list);
+    exps->alloc(exps->alloc_ud, exps->token_list, sizeof(Token*) * exps->token_size);
     Expression *exp = exps->first;
     while(exp){
-        free(exp->dump_string);
-        free(exp->value_array);
+        exps->alloc(exps->alloc_ud, exp->dump_string, sizeof(char) * (strlen(exp->dump_string)+1));
+        exps->alloc(exps->alloc_ud, exp->value_array, sizeof(Value) * exp->value_size);
         Expression *next = exp->next;
-        free(exp);
+        exps->alloc(exps->alloc_ud, exp, sizeof(Expression));
         exp = next;
     }
-    free(exps);
+    AttribAlloc alloc = exps->alloc;
+    void *alloc_ud = exps->alloc_ud;
+    alloc(alloc_ud, exps, sizeof(Expressions));
 }
 
 
 Attrib *
 attrib_new(Expressions *exps){
-    Attrib *attrib = malloc(sizeof(Attrib));
-    attrib->reg = malloc(sizeof(float) * exps->register_size);
+    Attrib *attrib = exps->alloc(exps->alloc_ud, 0, sizeof(Attrib));
+    attrib->reg = exps->alloc(exps->alloc_ud, 0, sizeof(float) * exps->register_size);
     memset(attrib->reg, 0, sizeof(float) * exps->register_size);
-    attrib->stack = malloc(sizeof(StackValue) * exps->stack_size);
+    attrib->stack = exps->alloc(exps->alloc_ud, 0, sizeof(StackValue) * exps->stack_size);
     attrib->exps = exps;
 
     return attrib;
@@ -470,9 +479,10 @@ _calc(Attrib *attrib, char **err){
 
 void
 attrib_delete(Attrib *attrib){
-    free(attrib->reg);
-    free(attrib->stack);
-    free(attrib);
+    Expressions *exps = attrib->exps;
+    exps->alloc(exps->alloc_ud, attrib->reg, sizeof(float) * exps->register_size);
+    exps->alloc(exps->alloc_ud, attrib->stack, sizeof(StackValue) * exps->stack_size);
+    exps->alloc(exps->alloc_ud, attrib, sizeof(Attrib));
 }
 
 int

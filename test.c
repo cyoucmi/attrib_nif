@@ -2,8 +2,18 @@
 #include <stdlib.h>
 #include "attrib.h"
 
+
+static void *alloc(void *ud, void *ptr, size_t size){
+    if(!ptr){
+        return malloc(size);
+    }
+    free(ptr);
+    return 0;
+    
+}
+
 int main(){
-    Expressions *exps = exps_new();
+    Expressions *exps = exps_new(alloc, 0);
     char *err;
     exps_epush(exps, "a = b+c", &err);
     if(!exps_epush(exps, "fight_power = a*a + attack*attack + defence*3 + hp/5 + (hit + dodge + critvalue + tough)/4", &err)){

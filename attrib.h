@@ -1,10 +1,12 @@
 #ifndef __ATTRIB_H__
 #define __ATTRIB_H__
+#include <stdlib.h>
 
 typedef struct Attrib Attrib;
 typedef struct Expressions Expressions;
+typedef void* (*AttribAlloc)(void *ud, void *ptr, size_t size);
 
-Expressions *exps_new();
+Expressions *exps_new(AttribAlloc, void *ud);
 int exps_epush(Expressions *exps, const char *formula, char **err);
 void exps_delete(Expressions * exps);
 
