@@ -15,4 +15,8 @@ int attrib_set(Attrib *attrib, const char *name, float value, char **err);
 int attrib_get(Attrib *attrib, const char *name, float *value, char **err);
 void attrib_delete(Attrib *attrib);
 
+
+// only for debug
+void attrib_dump(Attrib*);
+
 #endif // _ATTRIB_H__

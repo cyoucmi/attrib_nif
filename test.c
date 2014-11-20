@@ -16,7 +16,7 @@ int main(){
     Expressions *exps = exps_new(alloc, 0);
     char *err;
     exps_epush(exps, "a = b+c", &err);
-    if(!exps_epush(exps, "fight_power = a*a + attack*attack + defence*3 + hp/5 + (hit + dodge + critvalue + tough)/4", &err)){
+    if(!exps_epush(exps, "fight_power = attack*attack + defence*3 + hp/5 + (hit + dodge + critvalue + tough)/4", &err)){
         printf("%s:%d", err, __LINE__);
         exit(0);
     };
@@ -42,6 +42,8 @@ int main(){
         printf("fight_power = %f\n", fight_power);
 
     };
+
+    attrib_dump(attrib);
 
     attrib_delete(attrib);
 

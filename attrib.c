@@ -358,8 +358,12 @@ exps_epush(Expressions *exps, const char *formula, char **err){
         }
     }
 
+
+    Value *new_value_array = exps->alloc(exps->alloc_ud, 0, value_use_size * sizeof(Value));
+    memcpy(new_value_array, exp->value_array, value_use_size * sizeof(Value));
+    exps->alloc(exps->alloc_ud, exp->value_array, exp->value_size * sizeof(Value));
     exp->value_size = value_use_size;
-    exp->value_array = realloc(exp->value_array, exp->value_size * sizeof(Value));
+    exp->value_array = new_value_array;
 
     int stack_size = 0, max_stack_size = 0;
     for(int j = 0; j < exp->value_size; j++){
@@ -521,3 +525,20 @@ attrib_get(Attrib *attrib, const char *name, float *value, char **err){
     }
 }
 
+void
+attrib_dump(Attrib* attrib){
+    Expressions *exps = attrib->exps;
+    Expression *exp = exps->first;
+    while(exp){
+        printf("%s;",exp->dump_string);
+        exp = exp->next;
+    }
+    for(int i = 0; i < exps->token_size; i++){
+        Token *token = exps->token_list[i];
+        while(token){
+            printf("%s:%f;",token->str, attrib->reg[token->register_index]);
+            token = token->next;
+        }
+    }
+
+}

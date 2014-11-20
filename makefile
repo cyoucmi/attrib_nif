@@ -11,7 +11,7 @@ OBJS = $(patsubst %.erl,$(OUTDIR)/%.beam,$(RCS))
 
 all:attrib_nif.so test $(OBJS)
 
-attrib_nif.so:attrib.c attrib.h
+attrib_nif.so:attrib.c attrib.h attrib_nif.c
 	gcc -o $@ $^ --shared -fpic -std=c99  $(FLAGS) -Wall -I $(ERL_ROOT)/emulator/beam -I $(ERL_ROOT)/include
 	
 test:attrib.c attrib.h test.c
